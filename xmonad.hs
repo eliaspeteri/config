@@ -1,15 +1,22 @@
+------------
 --  IMPORTS
+------------
+-- Base
 import XMonad
-import Data.Monoid (mappend)
+import XMonad.Config.Desktop
+import Data.Monoid 
 import System.Exit
+import System.IO (hPutStrLn)
+import qualified XMonad.StackSet as W
+import qualified Data.Map        as M (fromList)
 -- Data
-import Data.Ratio ((%)) -- for video
+import Data.Ratio ((%))            -- for video
 -- Actions
-import XMonad.Actions.CopyWindow -- for dwm window style tagging
+import XMonad.Actions.CopyWindow   -- for dwm window style tagging
 import XMonad.Actions.MouseResize
---import XMonad.Actions.Volume -- for volume control 
+--import XMonad.Actions.Volume     -- for volume control 
 -- Util
-import XMonad.Util.EZConfig 
+import XMonad.Util.EZConfig (additionalKeys) 
 import XMonad.Util.Run (runProcessWithInput, safeSpawn, spawnPipe)
 import XMonad.Util.SpawnOnce
 -- Hooks
@@ -19,17 +26,17 @@ import XMonad.Hooks.ManageHelpers (isFullscreen, isDialog, doFullFloat, doCenter
 import XMonad.Hooks.Place (placeHook, withGaps, smart)
 -- Layouts
 import XMonad.Layout.GridVariants
-import XMonad.Layout.LimitWindows
+import XMonad.Layout.MultiToggle (mkToggle, single, EOT(EOT), Toggle(..), (??))
+import XMonad.Layout.MultiToggle.Instances (StdTransformers(NBFULL, MIRROR, NOBORDERS))
+import XMonad.Layout.NoBorders
+import XMonad.Layout.LimitWindows  -- limits number of visible windows
+import XMonad.Layout.Renamed (renamed, Rename(CutWordsLeft, Replace))
 import XMonad.Layout.ResizableTile -- allow adjust window size in tile mode
-import XMonad.Layout.Spacing -- allow spacing between windows
-import XMonad.Layout.SubLayouts -- Layouts inside windows. Excellent!
+import XMonad.Layout.Spacing       -- allow spacing between windows
+import XMonad.Layout.SubLayouts    -- Layouts inside windows. Excellent!
 import XMonad.Layout.ThreeColumns
 import XMonad.Layout.WindowArranger
-
-import System.IO
-import qualified XMonad.StackSet as W
-import qualified Data.Map        as M (fromList)
-
+import qualified XMonad.Layout.ToggleLayouts as T (toggleLayouts, ToggleLayout(Toggle))
 ------------------------------------------------------------------------
 -- Key bindings. Add, modify or remove key bindings here.
 --
@@ -127,6 +134,7 @@ myKeys conf@(XConfig {XMonad.modMask = modm}) = M.fromList $
         , (f, m) <- [(W.view, 0), (W.shift, shiftMask)]]
 
 
+
 ------------------------------------------------------------------------
 -- Mouse bindings: default actions bound to mouse events
 --
@@ -192,8 +200,11 @@ delta   = 3/100
 myManageHook = composeAll
     [ className =? "MPlayer"        --> doFloat
     , className =? "Gimp"           --> doFloat
+    , className =? "Xmessage"       --> doFloat
+    , className =? "Brave-browser"  --> doShift "www"
     , resource  =? "desktop_window" --> doIgnore
-    , resource  =? "kdesktop"       --> doIgnore ]
+    , resource  =? "kdesktop"       --> doIgnore
+    , manageDocks ]
 
 ------------------------------------------------------------------------
 -- Event handling
@@ -207,13 +218,14 @@ myManageHook = composeAll
 myEventHook = mempty
 
 ------------------------------------------------------------------------
--- Now run xmonad with all the defaults we set up.
-
--- Run xmonad with the settings you specify. No need to modify this.
---
+-------------------
+--  MAIN
+-------------------
+main :: IO ()
 main = do
-  xmproc <- spawnPipe "/usr/bin/xmobar -x 0 /home/eliaspeteri/.config/xmobar/xmobarrc"
-  xmonad $ docks $ defaults xmproc
+  xmproc0 <- spawnPipe "/usr/bin/xmobar -x 0 /home/eliaspeteri/.config/xmobar/xmobarrc0"
+  xmproc1 <- spawnPipe "/usr/bin/xmobar -x 1 /home/eliaspeteri/.config/xmobar/xmobarrc1"
+  xmonad $ docks $ defaults xmproc0 
 
 -- A structure containing your configuration settings, overriding
 -- fields in the default config. Any you don't override, will
@@ -221,14 +233,14 @@ main = do
 --
 -- No need to modify this.
 --
-defaults xmproc = def {
+defaults xmproc0 = def {
       -- simple stuff
         terminal           = "gnome-terminal",
         focusFollowsMouse  = True,
         clickJustFocuses   = False,
         borderWidth        = 1,
         modMask            = mod4Mask, -- set Super key as modkey
-        workspaces         = ["home","work","web","code"],
+        workspaces         = ["www","dev","sys"],
         normalBorderColor  = "#023246",
         focusedBorderColor = "#d78a1d",
 
@@ -241,7 +253,7 @@ defaults xmproc = def {
         manageHook         = myManageHook,
         handleEventHook    = myEventHook,
         logHook            = dynamicLogWithPP xmobarPP
-                             { ppOutput = hPutStrLn xmproc
+                             { ppOutput = hPutStrLn xmproc0
                              , ppTitle = xmobarColor "green" "" . shorten 50
                              },
         startupHook        = do
